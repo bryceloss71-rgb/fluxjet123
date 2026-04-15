@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FluxJet — Private Aviation</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C96E;
+    --gold-dim: #8A6B2A;
+    --white: #F5F0E8;
+    --dark: #080808;
+    --dark-2: #111111;
+    --dark-3: #1A1A1A;
+    --dark-4: #222222;
+    --text-muted: #888880;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --sidebar-w: 270px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--dark);
+    color: var(--white);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ══════════════════════════════
+     SIDEBAR
+  ══════════════════════════════ */
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s;
+    backdrop-filter: blur(4px);
+  }
+  .sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--sidebar-w);
+    height: 100%;
+    background: var(--dark-2);
+    border-right: 1px solid rgba(201,168,76,0.15);
+    z-index: 300;
+    transform: translateX(-100%);
+    transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    flex-direction: column;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    overflow: hidden;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-top {
+    padding: 2rem 1.8rem 1.5rem;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 0.22em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+
+  .sidebar-close {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.2);
+    color: var(--text-muted);
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+  }
+  .sidebar-close:hover { border-color: var(--gold); color: var(--gold); }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    overflow-y: auto;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-sm);
+    color: var(--white);
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    transition: all 0.25s;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+  }
+  .sidebar-link:hover {
+    opacity: 1;
+    background: rgba(201,168,76,0.07);
+    color: var(--gold);
+  }
+  .sidebar-link .s-icon { font-size: 1rem; width: 1.2rem; }
+
+  .sidebar-divider {
+    height: 1px;
+    background: rgba(201,168,76,0.1);
+    margin: 0.5rem 1rem;
+  }
+
+  .sidebar-book-btn {
+    margin: 1.2rem;
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .sidebar-book-btn:hover { background: var(--gold-light); }
+
+  /* ══════════════════════════════
+     TOP NAV BAR
+  ══════════════════════════════ */
+  nav#navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 1.2rem 2rem;
+    background: linear-gradient(to bottom, rgba(8,8,8,0.96), transparent);
+    transition: background 0.4s;
+  }
+  nav#navbar.scrolled {
+    background: rgba(8,8,8,0.97);
+    border-bottom: 1px solid rgba(201,168,76,0.12);
+  }
+
+  .nav-left { display: flex; align-items: center; gap: 1rem; }
+
+  .hamburger {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: var(--radius-sm);
+    color: var(--gold);
+    width: 2.4rem;
+    height: 2.4rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.25s;
+    flex-shrink: 0;
+  }
+  .hamburger:hover { border-color: var(--gold); background: rgba(201,168,76,0.08); }
+  .hamburger span {
+    display: block;
+    width: 16px;
+    height: 1.5px;
+    background: var(--gold);
+    border-radius: 2px;
+    transition: all 0.25s;
+  }
+
+  .nav-home-btn {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .nav-home-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .nav-center {
+    display: flex;
+    justify-content: center;
+  }
+
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.7rem;
+    font-weight: 300;
+    letter-spacing: 0.28em;
+    color: var(--gold);
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .nav-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .nav-why-btn {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .nav-why-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .nav-book-btn {
+    background: var(--gold);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--dark);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.6rem 1.3rem;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .nav-book-btn:hover { background: var(--gold-light); }
+
+  /* ══════════════════════════════
+     HERO
+  ══════════════════════════════ */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 4rem;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 70% 40%, rgba(201,168,76,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 80% at 90% 80%, rgba(201,168,76,0.04) 0%, transparent 50%),
+      linear-gradient(160deg, #0a0a0a 0%, #080808 50%, #060606 100%);
+  }
+  .hero-lines {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 50%;
+    overflow: hidden;
+    opacity: 0.07;
+  }
+  .hero-lines::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(201,168,76,0.5) 60px, rgba(201,168,76,0.5) 61px);
+    transform: skewX(-15deg) scaleX(1.5);
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 680px;
+  }
+  .hero-eyebrow {
+    font-size: 0.65rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 0.3s;
+  }
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3.5rem, 7vw, 7rem);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 2rem;
+    opacity: 0;
+    animation: fadeUp 1s forwards 0.5s;
+  }
+  .hero-title em { font-style: italic; color: var(--gold); }
+  .hero-subtitle {
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    line-height: 1.9;
+    color: var(--text-muted);
+    max-width: 440px;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 1s forwards 0.7s;
+  }
+  .hero-ctas {
+    display: flex;
+    gap: 1rem;
+    opacity: 0;
+    animation: fadeUp 1s forwards 0.9s;
+  }
+  .btn-primary {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 1rem 2.4rem;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .btn-primary:hover { background: var(--gold-light); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--white);
+    border: 1px solid rgba(245,240,232,0.2);
+    border-radius: var(--radius-sm);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 1rem 2.4rem;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .btn-secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 3rem;
+    left: 4rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    opacity: 0;
+    animation: fadeUp 1s forwards 1.2s;
+  }
+  .scroll-line {
+    width: 40px; height: 1px;
+    background: var(--gold);
+    position: relative; overflow: hidden;
+  }
+  .scroll-line::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: white;
+    animation: scrollLine 2s infinite 2s;
+  }
+  .scroll-text { font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-muted); }
+
+  /* ══════════════════════════════
+     FLEET
+  ══════════════════════════════ */
+  .fleet {
+    padding: 7rem 4rem;
+    background: var(--dark-2);
+    position: relative;
+  }
+  .section-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 3.5rem;
+  }
+  .section-eyebrow {
+    font-size: 0.6rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.7rem;
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 300;
+    line-height: 1.1;
+  }
+  .section-title em { font-style: italic; color: var(--gold); }
+
+  .fleet-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 1200px) { .fleet-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .fleet-grid { grid-template-columns: 1fr; } }
+
+  .fleet-card {
+    background: var(--dark-3);
+    padding: 2rem;
+    border: 1px solid rgba(201,168,76,0.08);
+    border-radius: var(--radius);
+    transition: border-color 0.3s, background 0.3s, transform 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .fleet-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .fleet-card:hover { background: var(--dark-4); border-color: rgba(201,168,76,0.2); transform: translateY(-3px); }
+  .fleet-card:hover::before { transform: scaleX(1); }
+
+  .fleet-badge {
+    display: inline-block;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(201,168,76,0.1);
+    border-radius: 20px;
+    padding: 0.25rem 0.7rem;
+    margin-bottom: 1.2rem;
+  }
+  .fleet-icon { font-size: 1.8rem; margin-bottom: 1rem; display: block; }
+  .fleet-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.25rem;
+    font-weight: 400;
+    color: var(--gold);
+    margin-bottom: 0.3rem;
+  }
+  .fleet-sub {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .fleet-desc { font-size: 0.73rem; line-height: 1.8; color: rgba(245,240,232,0.55); }
+  .fleet-stat {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid rgba(201,168,76,0.1);
+  }
+  .stat-val { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; color: var(--gold); display: block; }
+  .stat-label { font-size: 0.55rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); }
+
+  /* ══════════════════════════════
+     WHY
+  ══════════════════════════════ */
+  .why {
+    padding: 7rem 4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6rem;
+    align-items: center;
+  }
+  .why-features { display: flex; flex-direction: column; gap: 1.5rem; }
+  .feature-item {
+    display: flex;
+    gap: 1.2rem;
+    align-items: flex-start;
+    padding: 1.3rem 1.3rem 1.3rem 1.5rem;
+    border-left: 2px solid rgba(201,168,76,0.15);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: rgba(201,168,76,0.02);
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .feature-item:hover { border-color: var(--gold); background: rgba(201,168,76,0.05); }
+  .feature-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+    color: rgba(201,168,76,0.2);
+    line-height: 1;
+    min-width: 2rem;
+  }
+  .feature-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 0.35rem;
+  }
+  .feature-desc { font-size: 0.73rem; line-height: 1.8; color: var(--text-muted); }
+
+  .why-visual {
+    position: relative;
+    height: 460px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .why-plane { font-size: 10rem; opacity: 0.06; transform: rotate(-20deg); position: absolute; }
+  .why-stats { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .why-stat-box {
+    background: var(--dark-3);
+    padding: 2rem;
+    border: 1px solid rgba(201,168,76,0.1);
+    border-radius: var(--radius);
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+  .why-stat-box:hover { border-color: rgba(201,168,76,0.3); }
+  .why-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 3rem; font-weight: 300; color: var(--gold); display: block; line-height: 1; margin-bottom: 0.5rem; }
+  .why-stat-label { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+
+  .gold-divider { width: 50px; height: 1px; background: var(--gold); margin: 1.3rem 0; }
+
+  /* ══════════════════════════════
+     FOOTER
+  ══════════════════════════════ */
+  footer {
+    background: var(--dark);
+    border-top: 1px solid rgba(201,168,76,0.1);
+    padding: 3rem 4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .footer-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 300; letter-spacing: 0.25em; color: var(--gold); text-transform: uppercase; }
+  .footer-tagline { font-size: 0.58rem; letter-spacing: 0.2em; color: var(--text-muted); text-transform: uppercase; margin-top: 0.3rem; }
+  .footer-copy { font-size: 0.62rem; color: var(--text-muted); letter-spacing: 0.08em; text-align: right; }
+
+  /* ══════════════════════════════
+     BOOKING MODAL
+  ══════════════════════════════ */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s;
+    backdrop-filter: blur(10px);
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--dark-2);
+    border: 1px solid rgba(201,168,76,0.18);
+    border-radius: var(--radius);
+    max-width: 680px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    transform: translateY(24px) scale(0.98);
+    transition: transform 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+  .modal::-webkit-scrollbar { width: 4px; }
+  .modal::-webkit-scrollbar-track { background: var(--dark-3); }
+  .modal::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 4px; }
+
+  .modal-header {
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: sticky;
+    top: 0;
+    background: var(--dark-2);
+    z-index: 2;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 1.9rem; font-weight: 300; color: var(--gold); }
+  .modal-sub { font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.3rem; }
+
+  .modal-close {
+    background: none;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 1rem;
+    width: 2rem; height: 2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+    flex-shrink: 0;
+  }
+  .modal-close:hover { border-color: var(--gold); color: var(--gold); }
+
+  .modal-body { padding: 2rem; }
+
+  .form-section { margin-bottom: 1.8rem; }
+  .form-section-title {
+    font-size: 0.58rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(201,168,76,0.12);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.8rem; }
+  .form-row.full { grid-template-columns: 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+  .form-label { font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+
+  .form-input, .form-select, .form-textarea {
+    background: var(--dark-3);
+    border: 1px solid rgba(201,168,76,0.12);
+    border-radius: var(--radius-sm);
+    color: var(--white);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 300;
+    padding: 0.75rem 0.9rem;
+    outline: none;
+    transition: border-color 0.25s;
+    width: 100%;
+    appearance: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--gold); }
+  .form-input::placeholder { color: rgba(136,136,128,0.45); }
+  .form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23C9A84C' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 10px 7px;
+    padding-right: 2.2rem;
+    cursor: pointer;
+  }
+  .form-select option { background: var(--dark-3); }
+  .form-textarea { resize: vertical; min-height: 85px; }
+
+  .modal-footer {
+    padding: 1.2rem 2rem 2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.8rem;
+    align-items: center;
+  }
+
+  .submit-btn {
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.9rem 2.2rem;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .submit-btn:hover { background: var(--gold-light); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .cancel-btn {
+    background: transparent;
+    border: 1px solid rgba(245,240,232,0.12);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.9rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .cancel-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .success-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    display: none;
+  }
+  .success-icon { font-size: 3rem; margin-bottom: 1.5rem; display: block; }
+  .success-title { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; color: var(--gold); margin-bottom: 0.7rem; }
+  .success-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.8; max-width: 360px; margin: 0 auto 2rem; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 2000;
+    background: var(--dark-3);
+    border: 1px solid var(--gold);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1.4rem;
+    font-size: 0.73rem;
+    letter-spacing: 0.05em;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.35s;
+    max-width: 300px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-color: #c94c4c; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scrollLine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    nav#navbar { padding: 1rem 1.2rem; }
+    .hero { padding: 0 1.5rem; }
+    .fleet, .why, footer { padding: 4rem 1.5rem; }
+    .why { grid-template-columns: 1fr; gap: 3rem; }
+    .why-visual { height: auto; }
+    .form-row { grid-template-columns: 1fr; }
+    footer { flex-direction: column; gap: 1.2rem; text-align: center; }
+    .footer-copy { text-align: center; }
+    .hero-ctas { flex-direction: column; }
+    .nav-why-btn { display: none; }
+    .nav-home-btn span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="sidebar-logo">FluxJet</div>
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="sidebar-link" onclick="closeSidebar(); scrollToSection('home')">
+      <span class="s-icon">🏠</span> Home
+    </button>
+    <button class="sidebar-link" onclick="closeSidebar(); scrollToSection('fleet')">
+      <span class="s-icon">✈</span> Our Fleet
+    </button>
+    <button class="sidebar-link" onclick="closeSidebar(); scrollToSection('about')">
+      <span class="s-icon">✦</span> Why FluxJet
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-link" onclick="closeSidebar(); openModal()">
+      <span class="s-icon">📋</span> Book a Flight
+    </button>
+  </nav>
+  <button class="sidebar-book-btn" onclick="closeSidebar(); openModal()">Reserve Now</button>
+</div>
+
+<!-- TOP NAV -->
+<nav id="navbar">
+  <div class="nav-left">
+    <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <button class="nav-home-btn" onclick="scrollToSection('home')">
+      <span>🏠</span> <span>Home</span>
+    </button>
+  </div>
+  <div class="nav-center">
+    <div class="nav-logo" onclick="scrollToSection('home')">FluxJet</div>
+  </div>
+  <div class="nav-right">
+    <button class="nav-why-btn" onclick="scrollToSection('about')">Why FluxJet</button>
+    <button class="nav-book-btn" onclick="openModal()">Book</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="hero-lines"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">Roblox Private Aviation</div>
+    <h1 class="hero-title">Fly on<br><em>Your Terms</em></h1>
+    <p class="hero-subtitle">FluxJet delivers uncompromising luxury air travel in Roblox. Reserve your private aircraft, choose your route, and experience what first class truly means.</p>
+    <div class="hero-ctas">
+      <button class="btn-primary" onclick="openModal()">Reserve Your Flight</button>
+      <button class="btn-secondary" onclick="scrollToSection('fleet')">View Fleet</button>
+    </div>
+  </div>
+  <div class="hero-scroll">
+    <div class="scroll-line"></div>
+    <span class="scroll-text">Scroll</span>
+  </div>
+</section>
+
+<!-- FLEET -->
+<section class="fleet" id="fleet">
+  <div class="section-header">
+    <div>
+      <div class="section-eyebrow">Our Aircraft</div>
+      <h2 class="section-title">The <em>Fleet</em></h2>
+    </div>
+  </div>
+  <div class="fleet-grid">
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Ultra Long Range</span>
+      <span class="fleet-icon">🛩</span>
+      <div class="fleet-name">Gulfstream G700</div>
+      <div class="fleet-sub">Heavy · 19 Passengers</div>
+      <p class="fleet-desc">The pinnacle of Gulfstream engineering. Widest cabin in its class with unmatched intercontinental range.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">19</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Ultra</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Long Range</span>
+      <span class="fleet-icon">✈</span>
+      <div class="fleet-name">Gulfstream G650</div>
+      <div class="fleet-sub">Heavy · 18 Passengers</div>
+      <p class="fleet-desc">Legendary speed and range. The G650 remains one of the most sought-after aircraft in private aviation.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">18</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Long</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Long Range</span>
+      <span class="fleet-icon">🛫</span>
+      <div class="fleet-name">Gulfstream G450</div>
+      <div class="fleet-sub">Super-Mid · 16 Passengers</div>
+      <p class="fleet-desc">Proven performance across hemispheres. A refined cabin with full stand-up height and exceptional comfort.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">16</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Long</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Super-Midsize</span>
+      <span class="fleet-icon">✈</span>
+      <div class="fleet-name">Praetor 600</div>
+      <div class="fleet-sub">Super-Mid · 12 Passengers</div>
+      <p class="fleet-desc">Embraer's flagship. Nonstop transatlantic capable with a whisper-quiet cabin and cutting-edge avionics.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">12</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Trans</span><span class="stat-label">Atlantic</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Midsize</span>
+      <span class="fleet-icon">🛩</span>
+      <div class="fleet-name">Challenger 350/3500</div>
+      <div class="fleet-sub">Midsize · 10 Passengers</div>
+      <p class="fleet-desc">Bombardier's best-selling midsize jet. Renowned for its flat-floor cabin and outstanding field performance.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">10</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Mid</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Midsize</span>
+      <span class="fleet-icon">✈</span>
+      <div class="fleet-name">Praetor 500</div>
+      <div class="fleet-sub">Midsize · 9 Passengers</div>
+      <p class="fleet-desc">Best range in its class. The Praetor 500 delivers a super-midsize experience in a midsize footprint.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">9</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Mid</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Light Jet</span>
+      <span class="fleet-icon">🛫</span>
+      <div class="fleet-name">Phenom 300</div>
+      <div class="fleet-sub">Light · 6 Passengers</div>
+      <p class="fleet-desc">The world's best-selling light jet. Fast, efficient, and beautifully appointed for shorter routes.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">6</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Short</span><span class="stat-label">Range</span></div>
+      </div>
+    </div>
+
+    <div class="fleet-card">
+      <span class="fleet-badge">Helicopter</span>
+      <span class="fleet-icon">🚁</span>
+      <div class="fleet-name">Sikorsky S-76</div>
+      <div class="fleet-sub">Rotary · 12 Passengers</div>
+      <p class="fleet-desc">The choice of heads of state and executives worldwide. Precision handling with a luxurious cabin.</p>
+      <div class="fleet-stat">
+        <div><span class="stat-val">12</span><span class="stat-label">Seats</span></div>
+        <div><span class="stat-val">Heli</span><span class="stat-label">Rotor</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="why" id="about">
+  <div>
+    <div class="section-eyebrow">Why FluxJet</div>
+    <h2 class="section-title">The <em>Difference</em><br>Is Everything</h2>
+    <div class="gold-divider"></div>
+    <div class="why-features">
+      <div class="feature-item">
+        <span class="feature-num">01</span>
+        <div>
+          <div class="feature-title">Dedicated Crew</div>
+          <p class="feature-desc">Every flight is staffed by trained FluxJet crew ensuring a seamless experience from boarding to arrival.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-num">02</span>
+        <div>
+          <div class="feature-title">Any Airport</div>
+          <p class="feature-desc">Access to all major and private airfields in Roblox. We go where commercial aviation won't.</p>
+        </div>
+      </div>
+      <div class="feature-item">
+        <span class="feature-num">03</span>
+        <div>
+          <div class="feature-title">On Your Schedule</div>
+          <p class="feature-desc">Book any time that suits you. FluxJet operates around your timetable, not ours.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="why-visual">
+    <div class="why-plane">✈</div>
+    <div class="why-stats">
+      <div class="why-stat-box">
+        <span class="why-stat-val">8</span>
+        <span class="why-stat-label">Aircraft</span>
+      </div>
+      <div class="why-stat-box">
+        <span class="why-stat-val">24/7</span>
+        <span class="why-stat-label">Availability</span>
+      </div>
+      <div class="why-stat-box">
+        <span class="why-stat-val">100%</span>
+        <span class="why-stat-label">Private</span>
+      </div>
+      <div class="why-stat-box">
+        <span class="why-stat-val">✦</span>
+        <span class="why-stat-label">Luxury Service</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-logo">FluxJet</div>
+    <div class="footer-tagline">Private Aviation · Roblox</div>
+  </div>
+  <div class="footer-copy">
+    © 2025 FluxJet Private Aviation<br>
+    <span style="opacity:0.5">Roblox · All Rights Reserved</span>
+  </div>
+</footer>
+
+<!-- BOOKING MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Reserve a Flight</div>
+        <div class="modal-sub">Complete the form — we'll confirm via Discord</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div id="formContent">
+      <div class="modal-body">
+
+        <div class="form-section">
+          <div class="form-section-title">Your Information</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Roblox Username *</label>
+              <input class="form-input" type="text" id="robloxUser" placeholder="@YourUsername" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Discord Username *</label>
+              <input class="form-input" type="text" id="discordUser" placeholder="user or @user" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Flight Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Departure Airport *</label>
+              <input class="form-input" type="text" id="depAirport" placeholder="e.g. KJFK / New York" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Arrival Airport *</label>
+              <input class="form-input" type="text" id="arrAirport" placeholder="e.g. KLAX / Los Angeles" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Preferred Date *</label>
+              <input class="form-input" type="date" id="flightDate" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Preferred Time *</label>
+              <input class="form-input" type="time" id="flightTime" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Aircraft *</label>
+              <select class="form-select" id="aircraftClass" required>
+                <option value="" disabled selected>Select aircraft</option>
+                <optgroup label="── Gulfstream">
+                  <option value="Gulfstream G700">Gulfstream G700 — Ultra Long Range</option>
+                  <option value="Gulfstream G650">Gulfstream G650 — Long Range</option>
+                  <option value="Gulfstream G450">Gulfstream G450 — Long Range</option>
+                </optgroup>
+                <optgroup label="── Embraer">
+                  <option value="Praetor 600">Praetor 600 — Super-Midsize</option>
+                  <option value="Praetor 500">Praetor 500 — Midsize</option>
+                  <option value="Phenom 300">Phenom 300 — Light Jet</option>
+                </optgroup>
+                <optgroup label="── Bombardier">
+                  <option value="Challenger 350/3500">Challenger 350/3500 — Midsize</option>
+                </optgroup>
+                <optgroup label="── Rotary">
+                  <option value="Sikorsky S-76">Sikorsky S-76 — Helicopter</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Passenger Count *</label>
+              <select class="form-select" id="paxCount" required>
+                <option value="" disabled selected>Select count</option>
+                <option>1</option><option>2</option><option>3</option>
+                <option>4</option><option>5</option><option>6</option>
+                <option>7</option><option>8</option><option>9</option>
+                <option>10</option><option>11</option><option>12+</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Additional Requests</div>
+          <div class="form-row full">
+            <div class="form-group">
+              <label class="form-label">Special Requests or Notes</label>
+              <textarea class="form-textarea" id="specialReq" placeholder="Special arrangements, additional details…"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+        <button class="submit-btn" id="submitBtn" onclick="submitBooking()">Confirm Reservation</button>
+      </div>
+    </div>
+
+    <div class="success-state" id="successState">
+      <span class="success-icon">✦</span>
+      <div class="success-title">Flight Reserved</div>
+      <p class="success-desc">Your request has been received. Our team will reach out via Discord within 24 hours to confirm your booking details.</p>
+      <button class="btn-primary" onclick="closeModal()">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // Nav scroll
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+  });
+
+  // Sidebar
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+    document.body.style.overflow = document.getElementById('sidebar').classList.contains('open') ? 'hidden' : '';
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // Scroll helper
+  function scrollToSection(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Modal
+  function openModal() {
+    document.getElementById('modalOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => {
+      document.getElementById('successState').style.display = 'none';
+      document.getElementById('formContent').style.display = 'block';
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Confirm Reservation';
+    }, 400);
+  }
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  }
+
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  async function submitBooking() {
+    const robloxUser = document.getElementById('robloxUser').value.trim();
+    const discordUser = document.getElementById('discordUser').value.trim();
+    const depAirport = document.getElementById('depAirport').value.trim();
+    const arrAirport = document.getElementById('arrAirport').value.trim();
+    const flightDate = document.getElementById('flightDate').value;
+    const flightTime = document.getElementById('flightTime').value;
+    const aircraftClass = document.getElementById('aircraftClass').value;
+    const paxCount = document.getElementById('paxCount').value;
+    const specialReq = document.getElementById('specialReq').value.trim();
+
+    if (!robloxUser || !discordUser || !depAirport || !arrAirport || !flightDate || !flightTime || !aircraftClass || !paxCount) {
+      showToast('Please fill in all required fields.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const embed = {
+      embeds: [{
+        title: '✈ New FluxJet Reservation',
+        color: 0xC9A84C,
+        fields: [
+          { name: '👤 Roblox Username', value: robloxUser, inline: true },
+          { name: '💬 Discord Username', value: discordUser, inline: true },
+          { name: '\u200b', value: '\u200b', inline: false },
+          { name: '🛫 Departure', value: depAirport, inline: true },
+          { name: '🛬 Arrival', value: arrAirport, inline: true },
+          { name: '\u200b', value: '\u200b', inline: false },
+          { name: '📅 Date', value: flightDate, inline: true },
+          { name: '⏰ Time', value: flightTime, inline: true },
+          { name: '✈ Aircraft', value: aircraftClass, inline: true },
+          { name: '👥 Passengers', value: paxCount, inline: true },
+          ...(specialReq ? [{ name: '📝 Notes', value: specialReq, inline: false }] : [])
+        ],
+        footer: { text: 'FluxJet Private Aviation · Roblox' },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    try {
+      const res = await fetch('https://discord.com/api/webhooks/1493771097026592938/ykJ1ggIcQQBKk86x4Fgy_NykK_VuUV3XLl_4yoEJXGi4TT56zUnZkF-877zQoD759gQX', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(embed)
+      });
+      if (res.ok || res.status === 204) {
+        document.getElementById('formContent').style.display = 'none';
+        document.getElementById('successState').style.display = 'block';
+      } else { throw new Error(); }
+    } catch {
+      showToast('Something went wrong. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Confirm Reservation';
+    }
+  }
+</script>
+</body>
+</html>
